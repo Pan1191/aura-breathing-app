@@ -47,6 +47,11 @@
             <button data-duration="180" class="practice-btn">3 分鐘</button>
             <button data-duration="300" class="practice-btn">5 分鐘</button>
             <button data-duration="0" class="practice-btn">無限</button>
+            <button data-duration="custom" id="custom-duration-btn" class="practice-btn">自訂</button>
+          </div>
+          <!-- Custom duration input (hidden by default) -->
+          <div id="custom-duration-container" style="display: none; margin-top: 0.5rem;">
+            <input type="number" id="custom-duration-input" min="1" max="120" placeholder="分鐘" />
           </div>
         </div>
         <!-- Rhythm cue controls -->
@@ -59,14 +64,6 @@
           <div class="cue-mode-options">
             <button data-mode="metronome" class="cue-mode-btn active">每秒提示</button>
             <button data-mode="signal" class="cue-mode-btn">開始時提示</button>
-          </div>
-        </div>
-        <div class="option-group">
-          <label>音效包：</label>
-          <div class="sound-pack-options">
-            <button data-pack="0" class="sound-pack-btn active">木魚</button>
-            <button data-pack="1" class="sound-pack-btn">水滴</button>
-            <button data-pack="2" class="sound-pack-btn">數位</button>
           </div>
         </div>
         <div class="option-group">

@@ -300,6 +300,18 @@ body {
   margin-right: 0.5rem;
 }
 
+/* Custom duration input styling */
+#custom-duration-container input {
+  width: 100%;
+  padding: 0.4rem;
+  border-radius: 6px;
+  border: 1px solid #34495e;
+  background: #1f2a39;
+  color: #ecf0f1;
+  font-size: 1rem;
+  text-align: center;
+}
+
 .modal-footer {
   display: flex;
   justify-content: center;

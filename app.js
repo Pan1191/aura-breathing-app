@@ -16,9 +16,11 @@
   // New cue controls
   const cuesToggleBtn = document.getElementById('cues-toggle');
   const cueModeButtons = document.querySelectorAll('.cue-mode-btn');
-  const soundPackButtons = document.querySelectorAll('.sound-pack-btn');
   const volumeSlider = document.getElementById('volume-slider');
   const muteHoldCheckbox = document.getElementById('mute-hold-checkbox');
+  const customDurationBtn = document.getElementById('custom-duration-btn');
+  const customDurationContainer = document.getElementById('custom-duration-container');
+  const customDurationInput = document.getElementById('custom-duration-input');
 
   // State
   let mode = 'three'; // 'three' or 'four'
@@ -34,7 +36,6 @@
   // Cue state
   let cuesEnabled = true;
   let cueMode = 'metronome'; // 'metronome' or 'signal'
-  let cuePack = 0;
   let cueVolume = 0.5; // 0 to 1
   let muteHold = false;
   let metronomeInterval = null;
@@ -99,19 +100,25 @@
         btn.classList.remove('active');
       }
     });
-    // highlight sound button
+    // If custom duration is active (not equal to fixed presets), show input and highlight custom button
+    const fixedDurations = [60, 180, 300, 0];
+    if (!fixedDurations.includes(practiceDuration)) {
+      // highlight custom
+      practiceButtons.forEach((btn) => btn.classList.remove('active'));
+      if (customDurationBtn) {
+        customDurationBtn.classList.add('active');
+      }
+      // show custom container and set value (minutes)
+      customDurationContainer.style.display = 'block';
+      customDurationInput.value = Math.round(practiceDuration / 60);
+    } else {
+      customDurationContainer.style.display = 'none';
+    }
 
     // reflect cue settings
     cuesToggleBtn.classList.toggle('active', cuesEnabled);
     cueModeButtons.forEach((btn) => {
       if (btn.dataset.mode === cueMode) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
-    });
-    soundPackButtons.forEach((btn) => {
-      if (parseInt(btn.dataset.pack, 10) === cuePack) {
         btn.classList.add('active');
       } else {
         btn.classList.remove('active');
@@ -296,11 +303,32 @@
   // Practice duration selection
   practiceButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
+      // Remove active state from all buttons
       practiceButtons.forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-      practiceDuration = parseInt(btn.dataset.duration, 10);
+      // Hide custom duration input by default
+      if (customDurationContainer) customDurationContainer.style.display = 'none';
+      // If custom button clicked
+      if (btn.dataset.duration === 'custom') {
+        btn.classList.add('active');
+        // Show custom input
+        if (customDurationContainer) customDurationContainer.style.display = 'block';
+        // Default practiceDuration based on current input value or zero
+        const minutes = parseInt(customDurationInput.value, 10);
+        practiceDuration = isNaN(minutes) ? 0 : minutes * 60;
+      } else {
+        btn.classList.add('active');
+        practiceDuration = parseInt(btn.dataset.duration, 10);
+      }
     });
   });
+
+  // Custom duration input
+  if (customDurationInput) {
+    customDurationInput.addEventListener('input', () => {
+      const minutes = parseInt(customDurationInput.value, 10);
+      practiceDuration = isNaN(minutes) ? 0 : minutes * 60;
+    });
+  }
 
   // (background sound removed)
 
@@ -316,16 +344,6 @@
       cueModeButtons.forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       cueMode = btn.dataset.mode;
-    });
-  });
-
-  // Sound pack selection
-  soundPackButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      soundPackButtons.forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-      cuePack = parseInt(btn.dataset.pack, 10);
-      window.audioEngine.setPack(cuePack);
     });
   });
 

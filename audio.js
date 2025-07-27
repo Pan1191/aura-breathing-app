@@ -1,13 +1,13 @@
 /*
  * Cue engine for Aura
  *
- * This module replaces the previous background ambience with a
- * rhythmic cue system. It uses Web Audio API oscillators to
- * generate brief tones for inhale, hold and exhale phases. Multiple
- * sound packs are provided, each with distinct oscillator types
- * and frequency pairs (normal and emphasised). The first beat of
- * each phase can be accentuated via a higher frequency or
- * amplitude. A gain node is used to control overall volume.
+ * This module implements the rhythmic cue system for Aura. It uses
+ * a single sine‑wave sound palette and applies pitch envelopes
+ * tailored to each breathing phase. Inhale sweeps upwards in
+ * frequency, exhale sweeps downwards, and hold maintains a
+ * steady tone. The first beat of each phase can still be
+ * accentuated by increasing amplitude. A master gain node is used
+ * to control overall volume.
  */
 
 class CueEngine {
@@ -15,33 +15,17 @@ class CueEngine {
     this.audioCtx = null;
     this.masterGain = null;
     this.volume = 0.5; // default volume [0,1]
-    this.packIndex = 0;
     /**
-     * Each sound pack defines an oscillator type and two frequencies
-     * for each breathing phase. The first element in the array is
-     * the normal beat frequency, the second is the accentuated
-     * frequency used for the first beat.
+     * Pitch definitions for each breathing phase. Each object
+     * contains a start and end frequency (Hz) for the pitch
+     * envelope. Inhale ramps up from A4 (440 Hz) to C5 (523.25 Hz);
+     * exhale ramps down from C5 to A4; hold stays at G4 (392 Hz).
      */
-    this.soundPacks = [
-      {
-        type: 'sine',
-        inhale: [600, 720],
-        hold: [500, 620],
-        exhale: [400, 540],
-      },
-      {
-        type: 'triangle',
-        inhale: [550, 650],
-        hold: [450, 550],
-        exhale: [350, 450],
-      },
-      {
-        type: 'square',
-        inhale: [700, 900],
-        hold: [600, 800],
-        exhale: [500, 700],
-      },
-    ];
+    this.pitches = {
+      inhale: { start: 440, end: 523.25 },
+      exhale: { start: 523.25, end: 440 },
+      hold:   { start: 392, end: 392 },
+    };
   }
 
   /**
@@ -60,13 +44,8 @@ class CueEngine {
     return this.audioCtx;
   }
 
-  /**
-   * Set the current sound pack.
-   * @param {number} index – index of the pack in this.soundPacks
-   */
-  setPack(index) {
-    this.packIndex = Math.min(Math.max(index, 0), this.soundPacks.length - 1);
-  }
+
+  // Removed setPack: only one sound palette is used
 
   /**
    * Adjust master volume. Accepts values from 0 to 1.
@@ -81,9 +60,10 @@ class CueEngine {
 
   /**
    * Play a single cue tone for the given phase. If isFirst is true
-   * the accentuated frequency and a slightly louder amplitude are
-   * used. Otherwise the normal frequency and standard amplitude are
-   * applied. The tone decays quickly to avoid lingering.
+   * the amplitude can be slightly higher to emphasise the first beat.
+   * Otherwise the standard amplitude is applied. The tone decays
+   * quickly to avoid lingering and uses a pitch envelope for
+   * inhale/exhale transitions.
    *
    * @param {string} phase – one of 'inhale', 'hold', 'exhale'
    * @param {boolean} isFirst – whether this cue is the first beat of the phase
@@ -91,32 +71,23 @@ class CueEngine {
   playCue(phase, isFirst = false) {
     // Lazy initialise audio context
     this.init();
-    const pack = this.soundPacks[this.packIndex];
-    // Pick frequencies for the phase
-    let freqPair;
-    if (phase === 'inhale') {
-      freqPair = pack.inhale;
-    } else if (phase === 'hold') {
-      freqPair = pack.hold;
-    } else {
-      freqPair = pack.exhale;
-    }
-    const frequency = isFirst ? freqPair[1] : freqPair[0];
+    const { start, end } = this.pitches[phase] || this.pitches.hold;
     const now = this.audioCtx.currentTime;
-    // Create oscillator and gain for envelope
     const osc = this.audioCtx.createOscillator();
     const gain = this.audioCtx.createGain();
-    osc.type = pack.type;
-    osc.frequency.setValueAtTime(frequency, now);
-    // Envelope: quick attack and decay
+    osc.type = 'sine';
+    // Set initial frequency and schedule pitch ramp
+    osc.frequency.setValueAtTime(start, now);
+    // Use a 0.4 s pitch envelope for inhale/exhale transitions
+    osc.frequency.linearRampToValueAtTime(end, now + 0.4);
+    // Amplitude envelope: quick attack and decay
     const baseAmp = isFirst ? 1.0 : 0.7;
     gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(baseAmp, now + 0.02);
-    // Use exponential decay for a natural release
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+    gain.gain.linearRampToValueAtTime(baseAmp, now + 0.05);
+    gain.gain.linearRampToValueAtTime(0, now + 0.4);
     osc.connect(gain).connect(this.masterGain);
     osc.start(now);
-    osc.stop(now + 0.3);
+    osc.stop(now + 0.45);
   }
 }
 
