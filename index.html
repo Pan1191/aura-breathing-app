@@ -49,14 +49,35 @@
             <button data-duration="0" class="practice-btn">無限</button>
           </div>
         </div>
-        <!-- Background sound selection -->
+        <!-- Rhythm cue controls -->
         <div class="option-group">
-          <label>背景音效：</label>
-          <div class="sound-options">
-            <button data-sound="none" class="sound-btn">無</button>
-            <button data-sound="waves" class="sound-btn">海浪</button>
-            <button data-sound="forest" class="sound-btn">森林</button>
+          <label>節奏提示音：</label>
+          <button id="cues-toggle" class="toggle-btn active">啟用</button>
+        </div>
+        <div class="option-group">
+          <label>提示模式：</label>
+          <div class="cue-mode-options">
+            <button data-mode="metronome" class="cue-mode-btn active">每秒提示</button>
+            <button data-mode="signal" class="cue-mode-btn">開始時提示</button>
           </div>
+        </div>
+        <div class="option-group">
+          <label>音效包：</label>
+          <div class="sound-pack-options">
+            <button data-pack="0" class="sound-pack-btn active">木魚</button>
+            <button data-pack="1" class="sound-pack-btn">水滴</button>
+            <button data-pack="2" class="sound-pack-btn">數位</button>
+          </div>
+        </div>
+        <div class="option-group">
+          <label for="volume-slider">音量：</label>
+          <input type="range" id="volume-slider" min="0" max="100" value="50">
+        </div>
+        <div class="option-group">
+          <label class="checkbox-inline">
+            <input type="checkbox" id="mute-hold-checkbox">
+            閉氣時靜音
+          </label>
         </div>
       </div>
       <div class="modal-footer">

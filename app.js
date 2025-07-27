@@ -11,20 +11,33 @@
   const tabFour = document.getElementById('tab-four');
   const durationInputsContainer = document.getElementById('duration-inputs');
   const practiceButtons = document.querySelectorAll('.practice-btn');
-  const soundButtons = document.querySelectorAll('.sound-btn');
   const saveBtn = document.getElementById('save-settings');
+
+  // New cue controls
+  const cuesToggleBtn = document.getElementById('cues-toggle');
+  const cueModeButtons = document.querySelectorAll('.cue-mode-btn');
+  const soundPackButtons = document.querySelectorAll('.sound-pack-btn');
+  const volumeSlider = document.getElementById('volume-slider');
+  const muteHoldCheckbox = document.getElementById('mute-hold-checkbox');
 
   // State
   let mode = 'three'; // 'three' or 'four'
   let durations = [4, 7, 8]; // seconds for each phase
   let practiceDuration = 0; // total session duration in seconds (0 for infinite)
-  let backgroundSound = 'none';
   let isRunning = false;
   let phaseIndex = 0;
   let timeoutId = null;
   let sessionStart = null;
   const SCALE_INHALE = 1.3;
   const SCALE_EXHALE = 1.0;
+
+  // Cue state
+  let cuesEnabled = true;
+  let cueMode = 'metronome'; // 'metronome' or 'signal'
+  let cuePack = 0;
+  let cueVolume = 0.5; // 0 to 1
+  let muteHold = false;
+  let metronomeInterval = null;
 
   /**
    * Build duration input fields based on the current mode (three or four phases).
@@ -87,13 +100,25 @@
       }
     });
     // highlight sound button
-    soundButtons.forEach((btn) => {
-      if (btn.dataset.sound === backgroundSound) {
+
+    // reflect cue settings
+    cuesToggleBtn.classList.toggle('active', cuesEnabled);
+    cueModeButtons.forEach((btn) => {
+      if (btn.dataset.mode === cueMode) {
         btn.classList.add('active');
       } else {
         btn.classList.remove('active');
       }
     });
+    soundPackButtons.forEach((btn) => {
+      if (parseInt(btn.dataset.pack, 10) === cuePack) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+    volumeSlider.value = Math.round(cueVolume * 100);
+    muteHoldCheckbox.checked = muteHold;
     overlay.classList.add('visible');
     modal.classList.add('visible');
   }
@@ -104,8 +129,6 @@
   function closeModal() {
     overlay.classList.remove('visible');
     modal.classList.remove('visible');
-    // Apply background sound
-    window.audioEngine.startBackground(backgroundSound);
     // Reset session when settings change
     if (isRunning) {
       stopBreathing();
@@ -134,6 +157,10 @@
     isRunning = false;
     clearTimeout(timeoutId);
     timeoutId = null;
+    if (metronomeInterval) {
+      clearInterval(metronomeInterval);
+      metronomeInterval = null;
+    }
     // Reset circle to baseline size and remove pulse
     circle.style.transitionDuration = '0.3s';
     circle.style.transform = `scale(${SCALE_EXHALE})`;
@@ -175,24 +202,77 @@
       circle.classList.remove('pulse');
       circle.style.transitionDuration = currentDuration + 's';
       circle.style.transform = `scale(${SCALE_INHALE})`;
-      window.audioEngine.playInhale();
+      // schedule cues for this phase
     } else if (phaseName === '呼氣') {
       circle.classList.remove('pulse');
       circle.style.transitionDuration = currentDuration + 's';
       circle.style.transform = `scale(${SCALE_EXHALE})`;
-      window.audioEngine.playExhale();
+      // schedule cues for this phase
     } else {
       // hold: keep current scale and pulse
       circle.classList.add('pulse');
       circle.style.transitionDuration = currentDuration + 's';
       // no change to transform
     }
+
+    // Determine phase key for cues
+    let phaseKey;
+    if (phaseName === '吸氣') phaseKey = 'inhale';
+    else if (phaseName === '呼氣') phaseKey = 'exhale';
+    else phaseKey = 'hold';
+
+    // Schedule cues based on settings
+    scheduleCuesForPhase(phaseKey, currentDuration);
     // Schedule next phase
     timeoutId = setTimeout(() => {
       // move to next phase
       phaseIndex = (phaseIndex + 1) % durations.length;
       runPhase();
     }, currentDuration * 1000);
+  }
+
+  /**
+   * Schedule cue tones for the current phase. Clears any existing
+   * metronome intervals and plays cues based on the selected mode.
+   * @param {string} phaseKey – 'inhale', 'exhale' or 'hold'
+   * @param {number} durationSec – duration of the phase in seconds
+   */
+  function scheduleCuesForPhase(phaseKey, durationSec) {
+    // Clear any previous interval
+    if (metronomeInterval) {
+      clearInterval(metronomeInterval);
+      metronomeInterval = null;
+    }
+    // If cues disabled or hold muted, skip entirely
+    const isHold = phaseKey === 'hold';
+    if (!cuesEnabled || (isHold && muteHold)) {
+      return;
+    }
+    // Ensure audio context is resumed on first user interaction
+    if (window.audioEngine.audioCtx && window.audioEngine.audioCtx.state === 'suspended') {
+      window.audioEngine.audioCtx.resume();
+    }
+    if (cueMode === 'signal') {
+      // Only play the first cue at phase start
+      window.audioEngine.playCue(phaseKey, true);
+      return;
+    }
+    // Metronome mode: play first cue immediately, then at each second
+    window.audioEngine.playCue(phaseKey, true);
+    // beep count starting from second 2
+    let elapsedBeats = 1;
+    metronomeInterval = setInterval(() => {
+      elapsedBeats++;
+      if (elapsedBeats > durationSec) {
+        clearInterval(metronomeInterval);
+        metronomeInterval = null;
+        return;
+      }
+      // Skip hold if muted
+      if (!(phaseKey === 'hold' && muteHold)) {
+        window.audioEngine.playCue(phaseKey, false);
+      }
+    }, 1000);
   }
 
   // Tab switching
@@ -222,13 +302,42 @@
     });
   });
 
-  // Background sound selection
-  soundButtons.forEach((btn) => {
+  // (background sound removed)
+
+  // Cue toggle
+  cuesToggleBtn.addEventListener('click', () => {
+    cuesEnabled = !cuesEnabled;
+    cuesToggleBtn.classList.toggle('active', cuesEnabled);
+  });
+
+  // Cue mode selection
+  cueModeButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
-      soundButtons.forEach((b) => b.classList.remove('active'));
+      cueModeButtons.forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
-      backgroundSound = btn.dataset.sound;
+      cueMode = btn.dataset.mode;
     });
+  });
+
+  // Sound pack selection
+  soundPackButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      soundPackButtons.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      cuePack = parseInt(btn.dataset.pack, 10);
+      window.audioEngine.setPack(cuePack);
+    });
+  });
+
+  // Volume slider
+  volumeSlider.addEventListener('input', () => {
+    cueVolume = parseInt(volumeSlider.value, 10) / 100;
+    window.audioEngine.setVolume(cueVolume);
+  });
+
+  // Mute hold checkbox
+  muteHoldCheckbox.addEventListener('change', () => {
+    muteHold = muteHoldCheckbox.checked;
   });
 
   // Save button
